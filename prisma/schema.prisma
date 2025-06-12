@@ -44,6 +44,13 @@ model Task {
   userId    Int
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  status    String @default("todo") // Yeni!
+  position  Int?    // Yeni! Taskların sütun içindəki sıra nömrəsi üçün (əgər drag-and-drop ilə sıralama istəyiriksə)
+
+  // Vaxt İdarəetməsi üçün (aşağıda izahı var)
+  startTime      DateTime? // Yeni! Taska başlama vaxtı
+  endTime        DateTime? // Yeni! Taskı bitirmə vaxtı (vaxt ölçmək üçün)
+  totalTimeSpent Int?      // Yeni! Saniyə və ya dəqiqə olaraq sərf olunan ümumi vaxt
 
   user     User      @relation(fields: [userId], references: [id])
   project  Project?  @relation(fields: [projectId], references: [id])
