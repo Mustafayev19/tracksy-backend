@@ -53,4 +53,14 @@ export class ProjectController {
     const userId = req.user.id;
     return this.projectService.remove(id, userId);
   }
+
+  /**
+   * Layihə statistikalarını qaytaran yeni endpoint.
+   * GET /projects/:id/stats
+   */
+  @Get(':id/stats')
+  async getProjectStats(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    const userId = req.user.id;
+    return this.projectService.getProjectStats(id, userId);
+  }
 }

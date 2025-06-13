@@ -7,6 +7,7 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 model User {
   id              Int       @id @default(autoincrement())
   name            String
@@ -15,56 +16,60 @@ model User {
   profileImageUrl String?   // optional
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  role            String   @default("user")
+  role            String    @default("user")
 
   projects Project[]
   tasks    Task[]
 }
 
 model Project {
-  id        Int       @id @default(autoincrement())
-  name      String
-  color     String?
-  userId    Int
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id                Int       @id @default(autoincrement())
+  name              String
+  color             String?
+  userId            Int
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // DÜZƏLİŞ: Layihə tamamlanması və deadline üçün yeni sahələr
+  isCompleted       Boolean   @default(false) // Layihənin tamamlanıb-tamamlanmadığı
+  completedAt       DateTime? // Layihənin nə vaxt tamamlandığı
+  deadline          DateTime? // Zamanlı layihələr üçün son bitmə tarixi
+  totalTimeSpent    Int?      // Layihəyə ümumi sərf olunan vaxt (saniyə ilə)
 
-  user  User   @relation(fields: [userId], references: [id])
-  tasks Task[]
+  user  User    @relation(fields: [userId], references: [id])
+  tasks Task[] // Tasklar da Project silinəndə silinsin deyə ON DELETE CASCADE qoymuşduq
 }
 
 model Task {
-  id        Int       @id @default(autoincrement())
-  title     String
-  notes     String?
-  completed Boolean   @default(false)
-  dueDate   DateTime?
-  priority  String    @default("medium")
-  projectId Int?
-  userId    Int
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  status    String @default("todo") // Yeni!
-  position  Int?    // Yeni! Taskların sütun içindəki sıra nömrəsi üçün (əgər drag-and-drop ilə sıralama istəyiriksə)
+  id             Int       @id @default(autoincrement())
+  title          String
+  notes          String?
+  completed      Boolean   @default(false)
+  dueDate        DateTime? // Bu sahəni Task səviyyəsində deadline üçün istifadə edə bilərik
+  priority       String    @default("medium")
+  projectId      Int?
+  userId         Int
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  status         String    @default("todo")
+  position       Int?
 
-  // Vaxt İdarəetməsi üçün (aşağıda izahı var)
-  startTime      DateTime? // Yeni! Taska başlama vaxtı
-  endTime        DateTime? // Yeni! Taskı bitirmə vaxtı (vaxt ölçmək üçün)
-  totalTimeSpent Int?      // Yeni! Saniyə və ya dəqiqə olaraq sərf olunan ümumi vaxt
+  startTime      DateTime?
+  endTime        DateTime?
+  totalTimeSpent Int?
 
-  user     User      @relation(fields: [userId], references: [id])
-  project  Project?  @relation(fields: [projectId], references: [id])
-  subtasks Subtask[]
+  user     User    @relation(fields: [userId], references: [id])
+  project  Project? @relation(fields: [projectId], references: [id], onDelete: Cascade) // ON DELETE CASCADE qalır
+  subtasks Subtask[] // Subtasklar da Task silinəndə silinsin deyə ON DELETE CASCADE qoymuşduq
 }
 
 model Subtask {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   title     String
-  completed Boolean  @default(false)
+  completed Boolean   @default(false)
   taskId    Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  task Task @relation(fields: [taskId], references: [id])
-
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade) // ON DELETE CASCADE qalır
 }

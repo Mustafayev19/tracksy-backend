@@ -1,3 +1,4 @@
+// src/auth/auth.service.ts
 import {
   BadRequestException,
   Injectable,
@@ -12,8 +13,9 @@ import { RegisterDto } from './dto/register.dto';
 export class AuthService {
   constructor(
     private prisma: PrismaService,
-    private jwtService: JwtService, // burda əlavə etdik
+    private jwtService: JwtService,
   ) {}
+
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -36,6 +38,7 @@ export class AuthService {
 
     return { message: 'User registered', user };
   }
+
   async getAllUsers() {
     return await this.prisma.user.findMany();
   }
@@ -51,10 +54,19 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Token yaratmaq
-    const payload = { sub: user.id, email: user.email };
+    // DÜZƏLİŞ: JWT Token Payloadına `name` sahəsini əlavə edirik
+    const payload = { sub: user.id, email: user.email, name: user.name }; // <--- DÜZƏLİŞ BURADA
     const token = this.jwtService.sign(payload);
 
-    return { access_token: token };
+    // DÜZƏLİŞ: Login cavabına `user` obyektini də əlavə edirik
+    return {
+      access_token: token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        profileImageUrl: user.profileImageUrl || null,
+      },
+    };
   }
 }
