@@ -6,12 +6,19 @@ import * as express from 'express'; // Express import edildi
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    bodyParser: false, // Avtomatik body parsingi deaktiv edirik
-    logger: ['error', 'warn', 'log'], // Ətraflı loglama
+    bodyParser: false,
+    logger: ['error', 'warn', 'log'],
   });
 
+  // DÜZƏLİŞ: app.enableCors() konfiqurasiyası
   app.enableCors({
-    origin: '*',
+    origin: [
+      'http://localhost:4200', // Frontend'in lokal adresi
+      'https://mustafayev-tracksy.netlify.app', // Sizin Netlify adresi
+      'https://tracksy-mj86.onrender.com', // Sizin Render frontend adresi (əgər frontend də Renderdədirsə)
+    ],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Bütün HTTP metodlarına icazə ver
+    credentials: true, // `Authorization` header'i və ya cookie kimi credentials göndərməyə icazə ver
   });
 
   // Əl ilə JSON body parser middleware-ni əlavə edirik
@@ -21,11 +28,11 @@ async function bootstrap() {
   // Qlobal ValidationPipe
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // DTO-da olmayan sahələri silir
-      forbidNonWhitelisted: false, // Əlavə sahələrə icazə verir, lakin onları silir (əvvəlki "property 0" xətasını həll edən)
-      transform: true, // Gələn payloadu DTO sinfinə çevirir
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transform: true,
       transformOptions: {
-        enableImplicitConversion: true, // Tipləri avtomatik çevirir (number string -> number)
+        enableImplicitConversion: true,
       },
     }),
   );
