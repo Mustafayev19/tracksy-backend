@@ -2,10 +2,10 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
-} from '@nestjs/common'; // DÜZƏLİŞ: BadRequestException, UnauthorizedException import edildi
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import * as bcrypt from 'bcryptjs'; // DÜZƏLİŞ: bcrypt import edildi
-import { ChangePasswordDto } from './dto/change-password.dto'; // DÜZƏLİŞ: ChangePasswordDto import edildi
+import * as bcrypt from 'bcryptjs';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { User } from 'generated/prisma/client';
 
 @Injectable()
@@ -22,20 +22,18 @@ export class UserService {
         role: true,
         createdAt: true,
         profileImageUrl: true,
-      }, // DÜZƏLİŞ: name və profileImageUrl əlavə edildi
+      },
     });
   }
 
   async findOne(id: number): Promise<User> {
-    // DÜZƏLİŞ: Return type User
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
 
   async updateRole(id: number, role: string): Promise<User> {
-    // DÜZƏLİŞ: Return type User
-    const user = await this.findOne(id); // İstifadəçinin mövcudluğunu yoxla
+    const user = await this.findOne(id);
     return this.prisma.user.update({
       where: { id },
       data: { role },
@@ -43,30 +41,23 @@ export class UserService {
   }
 
   async remove(id: number): Promise<void> {
-    // DÜZƏLİŞ: Return type void
-    await this.findOne(id); // İstifadəçinin mövcudluğunu yoxla
+    await this.findOne(id);
     await this.prisma.user.delete({ where: { id } });
   }
 
-  /**
-   * İstifadəçinin parolunu dəyişdirir.
-   */
   async changePassword(userId: number, dto: ChangePasswordDto): Promise<User> {
-    const user = await this.findOne(userId); // İstifadəçini tap
+    const user = await this.findOne(userId);
 
-    // Cari parolun düzgünlüyünü yoxla
     const isPasswordValid = await bcrypt.compare(
       dto.oldPassword,
       user.password,
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Cari parol yanlışdır.'); // Veya BadRequestException
+      throw new UnauthorizedException('Cari parol yanlışdır.');
     }
 
-    // Yeni parolu şifrələ
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
 
-    // Parolu database-də yenilə
     return this.prisma.user.update({
       where: { id: userId },
       data: { password: hashedPassword },
