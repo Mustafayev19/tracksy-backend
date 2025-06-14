@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common'; // DÜZƏLİŞ: BadRequestException, UnauthorizedException import edildi
 import { PrismaService } from 'src/prisma/prisma.service';
