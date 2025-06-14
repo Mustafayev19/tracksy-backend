@@ -54,18 +54,19 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // DÜZƏLİŞ: JWT Token Payloadına `name` sahəsini əlavə edirik
-    const payload = { sub: user.id, email: user.email, name: user.name }; // <--- DÜZƏLİŞ BURADA
+    const payload = { sub: user.id, email: user.email, name: user.name };
     const token = this.jwtService.sign(payload);
 
     // DÜZƏLİŞ: Login cavabına `user` obyektini də əlavə edirik
     return {
       access_token: token,
       user: {
+        // <--- BU OBYEKT CAVABDA OLMALIDIR
         id: user.id,
         name: user.name,
         email: user.email,
         profileImageUrl: user.profileImageUrl || null,
+        role: user.role, // Rol da əlavə edirik
       },
     };
   }
