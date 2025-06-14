@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { Project } from 'generated/prisma/client';
+import { Project } from '@prisma/client'; // DÜZƏLİŞ: Bu import doğru yoldur
 
 @Injectable()
 export class ProjectService {

@@ -16,6 +16,15 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    // DÜZƏLİŞ: Aşağıdakı konfiqurasiyalar əlavə edildi
+    "paths": {
+      // Bu, '@prisma/client' paketinin daxilindəki modelləri tapmaq üçündür
+      "@prisma/client": ["./node_modules/.prisma/client"]
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules/.prisma/client" // DÜZƏLİŞ: Prisma tiplərini tanımak üçün
+    ]
   }
 }

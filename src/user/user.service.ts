@@ -6,7 +6,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { User } from 'generated/prisma/client';
+import { User } from '@prisma/client'; // DÜZƏLİŞ: Bu import doğru yoldur
 
 @Injectable()
 export class UserService {
