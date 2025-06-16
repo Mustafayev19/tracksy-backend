@@ -6,7 +6,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url  	    = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
@@ -60,7 +59,7 @@ model Task {
   totalTimeSpent Int?
 
   user     User    @relation(fields: [userId], references: [id])
-  project  Project? @relation(fields: [projectId], references: [id], onDelete: Cascade) // ON DELETE CASCADE qalır
+  project  Project? @relation(fields: [projectId], references: [id]) // ON DELETE CASCADE qalır
   subtasks Subtask[] // Subtasklar da Task silinəndə silinsin deyə ON DELETE CASCADE qoymuşduq
 }
 
@@ -72,5 +71,5 @@ model Subtask {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade) // ON DELETE CASCADE qalır
+  task Task @relation(fields: [taskId], references: [id]) // ON DELETE CASCADE qalır
 }
