@@ -6,7 +6,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateTaskDto, Status } from './dto/create-task.dto'; // Status Enumunu import etdik
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { Task } from '@prisma/client';
+import { Task } from 'generated/prisma';
 
 @Injectable()
 export class TaskService {
