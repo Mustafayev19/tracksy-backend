@@ -2,27 +2,19 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { Project } from 'generated/prisma';
+import { Project, Task } from '@prisma/client'; // Task modeli istifadə olunmasa da, Prisma'dan Project'i dəqiqləşdiririk.
 
 @Injectable()
 export class ProjectService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Bütün layihələri istifadəçi ID-sinə görə qaytarır.
-   * Layihələrə aid statistik məlumatları daxil edir (lakin bu metod üçün yox, yeni bir metod üçün).
-   */
   async findAll(userId: number): Promise<Project[]> {
     return this.prisma.project.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      // `include` burada lazım deyil, çünki statistikaları ayrıca metoddan alacağıq
     });
   }
 
-  /**
-   * Müəyyən bir layihəni ID və istifadəçi ID-sinə görə qaytarır.
-   */
   async findOne(id: number, userId: number): Promise<Project> {
     const project = await this.prisma.project.findFirst({
       where: { id, userId },
@@ -31,65 +23,53 @@ export class ProjectService {
     return project;
   }
 
-  /**
-   * Yeni layihə yaradır.
-   */
   async create(userId: number, dto: CreateProjectDto): Promise<Project> {
     return this.prisma.project.create({
       data: {
         ...dto,
         userId,
-        isCompleted: false, // Yeni yaradılan layihə default olaraq tamamlanmamışdır
-        totalTimeSpent: 0, // Yeni yaradılan layihənin sərf olunan vaxtı 0-dır
+        isCompleted: false,
+        totalTimeSpent: 0,
+        deadline: dto.deadline ? new Date(dto.deadline) : undefined, // DÜZƏLİŞ: Deadline Date obyektinə çevrilir
       },
     });
   }
 
-  /**
-   * Layihəni güncəlləyir.
-   */
   async update(
     id: number,
     userId: number,
     dto: UpdateProjectDto,
   ): Promise<Project> {
-    // Layihənin istifadəçiyə aid olduğunu yoxla
     await this.findOne(id, userId);
     const updatedProject = await this.prisma.project.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        deadline: dto.deadline ? new Date(dto.deadline) : undefined, // DÜZƏLİŞ: Deadline Date obyektinə çevrilir
+      },
     });
     return updatedProject;
   }
 
-  /**
-   * Layihəni silir. ON DELETE CASCADE sayəsində əlaqəli tasklar və subtasklar da silinir.
-   */
   async remove(id: number, userId: number): Promise<void> {
-    await this.findOne(id, userId); // Layihənin istifadəçiyə aid olduğunu yoxla
+    await this.findOne(id, userId);
     await this.prisma.project.delete({
       where: { id },
     });
   }
 
-  /**
-   * Layihəyə aid statistik məlumatları qaytarır:
-   * - Ümumi task sayı
-   * - Tamamlanmış task sayı
-   * - Layihəyə sərf olunan ümumi vaxt
-   */
   async getProjectStats(
     projectId: number,
     userId: number,
   ): Promise<{
     totalTasks: number;
     completedTasks: number;
-    totalTimeSpent: number; // Saniyə
+    totalTimeSpent: number;
     isCompleted: boolean;
     completedAt: Date | null;
     projectName: string;
   }> {
-    const project = await this.findOne(projectId, userId); // Layihənin mövcudluğunu və aidiyyatını yoxla
+    const project = await this.findOne(projectId, userId);
 
     const tasks = await this.prisma.task.findMany({
       where: { projectId: projectId },
@@ -116,10 +96,6 @@ export class ProjectService {
     };
   }
 
-  /**
-   * Layihənin bütün taskları tamamlandıqda layihənin statusunu yeniləyir.
-   * Bu metod TaskService-dən çağırılacaq.
-   */
   async updateProjectCompletionStatus(projectId: number): Promise<void> {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
@@ -139,18 +115,15 @@ export class ProjectService {
     let newCompletedAt: Date | null = project.completedAt;
 
     if (allTasksCompleted && !project.isCompleted) {
-      // Bütün tasklar tamamlandı VƏ layihə hələ tamamlanmayıbsa
       newIsCompletedStatus = true;
-      newCompletedAt = new Date(); // Tamamlanma vaxtını qeyd et
+      newCompletedAt = new Date();
       shouldUpdateProject = true;
     } else if (!allTasksCompleted && project.isCompleted) {
-      // Bütün tasklar tamamlanmadı VƏ layihə tamamlanmışdısa (geri alındı)
       newIsCompletedStatus = false;
-      newCompletedAt = null; // Tamamlanma vaxtını sıfırla
+      newCompletedAt = null;
       shouldUpdateProject = true;
     }
 
-    // Layihənin totalTimeSpent-ni də yenilə (tasklar dəyişəndə)
     if (project.totalTimeSpent !== currentProjectTotalTimeSpent) {
       shouldUpdateProject = true;
     }
@@ -161,7 +134,7 @@ export class ProjectService {
         data: {
           isCompleted: newIsCompletedStatus,
           completedAt: newCompletedAt,
-          totalTimeSpent: currentProjectTotalTimeSpent, // Total vaxtı yenilə
+          totalTimeSpent: currentProjectTotalTimeSpent,
         },
       });
     }
