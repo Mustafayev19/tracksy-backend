@@ -1,25 +1,14 @@
+// FAYL: src/tasks/dto/create-task.dto.ts (DÜZƏLDİLMİŞ)
+
 import {
   IsString,
   IsOptional,
-  IsBoolean,
-  IsDateString,
-  IsEnum,
   IsNumber,
+  IsEnum,
+  IsDateString,
 } from 'class-validator';
-
-// Yeni: Taskın statusunu göstərmək üçün Enum
-export enum Priority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-}
-
-// Yeni: Taskın statusunu göstərmək üçün Enum (Kanban Board üçün)
-export enum Status {
-  TODO = 'todo', // Ediləcək
-  IN_PROGRESS = 'inProgress', // İşdə
-  DONE = 'done', // Tamamlandı
-}
+// DÜZƏLİŞ: İmport yolu nisbi olaraq düzəldildi
+import { TaskPriority, TaskStatus } from 'generated/prisma';
 
 export class CreateTaskDto {
   @IsString()
@@ -30,28 +19,21 @@ export class CreateTaskDto {
   notes?: string;
 
   @IsOptional()
-  @IsBoolean()
-  completed?: boolean;
-
-  @IsOptional()
   @IsDateString()
   dueDate?: string;
 
   @IsOptional()
-  @IsEnum(Priority)
-  priority?: Priority;
+  @IsEnum(TaskPriority)
+  priority?: TaskPriority;
+
+  @IsNumber()
+  projectId: number;
+
+  @IsOptional()
+  @IsEnum(TaskStatus)
+  status?: TaskStatus;
 
   @IsOptional()
   @IsNumber()
-  projectId?: number;
-
-  // Yeni: Taskın statusu
-  @IsOptional()
-  @IsEnum(Status)
-  status?: Status; // Default dəyər Prisma modelində olacağı üçün burada IsOptional qaldı
-
-  // Yeni: Taskın sütun daxilindəki mövqeyi
-  @IsOptional()
-  @IsNumber()
-  position?: number; // Optional, çünki frontend tərəfindən idarə oluna bilər
+  parentId?: number;
 }

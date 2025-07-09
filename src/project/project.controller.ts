@@ -1,3 +1,5 @@
+// src/project/project.controller.ts (YENİLƏNMİŞ)
+
 import {
   Controller,
   Get,
@@ -7,13 +9,13 @@ import {
   Param,
   Body,
   UseGuards,
-  Req,
   ParseIntPipe,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
-import { JwtAuthGuard } from 'src/auth/jwt.aut.guard';
+import { JwtAuthGuard } from 'src/auth/jwt.aut.guard'; // Düzgün import yolu
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { GetUser } from 'src/auth/get-user.decorator'; // YENİ DEKORATORU İMPORT EDİRİK
 
 @UseGuards(JwtAuthGuard)
 @Controller('projects')
@@ -21,20 +23,21 @@ export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
   @Get()
-  async findAll(@Req() req) {
-    const userId = req.user.id;
+  async findAll(@GetUser('id') userId: number) {
+    // KOD DAHA TƏMİZ OLDU
     return this.projectService.findAll(userId);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req) {
-    const userId = req.user.id;
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUser('id') userId: number,
+  ) {
     return this.projectService.findOne(id, userId);
   }
 
   @Post()
-  async create(@Body() dto: CreateProjectDto, @Req() req) {
-    const userId = req.user.id;
+  async create(@Body() dto: CreateProjectDto, @GetUser('id') userId: number) {
     return this.projectService.create(userId, dto);
   }
 
@@ -42,25 +45,24 @@ export class ProjectController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateProjectDto,
-    @Req() req,
+    @GetUser('id') userId: number,
   ) {
-    const userId = req.user.id;
     return this.projectService.update(id, userId, dto);
   }
 
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number, @Req() req) {
-    const userId = req.user.id;
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUser('id') userId: number,
+  ) {
     return this.projectService.remove(id, userId);
   }
 
-  /**
-   * Layihə statistikalarını qaytaran yeni endpoint.
-   * GET /projects/:id/stats
-   */
   @Get(':id/stats')
-  async getProjectStats(@Param('id', ParseIntPipe) id: number, @Req() req) {
-    const userId = req.user.id;
+  async getProjectStats(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUser('id') userId: number,
+  ) {
     return this.projectService.getProjectStats(id, userId);
   }
 }

@@ -2,188 +2,177 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common'; // BadRequestException əlavə edildi
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateTaskDto, Status } from './dto/create-task.dto'; // Status Enumunu import etdik
+import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { Task } from 'generated/prisma';
+import { UpdateTaskPositionDto } from './dto/update-task-position.dto';
+import { Task, TaskStatus } from 'generated/prisma';
 
 @Injectable()
 export class TaskService {
   constructor(private prisma: PrismaService) {}
 
-  async create(userId: number, dto: CreateTaskDto) {
-    // Yeni taskın pozisiyasını tapmaq
-    // Ən sonuncu taskın pozisiyasından bir sonrakı dəyəri götürürük
-    const lastTask = await this.prisma.task.findFirst({
-      where: {
-        userId,
-        projectId: dto.projectId,
-        status: dto.status ?? Status.TODO, // Yeni task default olaraq 'todo' statusunda olacaq
-      },
-      orderBy: { position: 'desc' },
-      select: { position: true },
-    });
+  async create(userId: number, dto: CreateTaskDto): Promise<Task> {
+    const { projectId, parentId, ...rest } = dto;
 
+    await this.verifyProjectOwnership(projectId, userId);
+
+    if (parentId) {
+      await this.verifyTaskOwnership(parentId, userId);
+    }
+
+    const lastTask = await this.prisma.task.findFirst({
+      where: { projectId, parentId: parentId ?? null },
+      orderBy: { position: 'desc' },
+    });
     const newPosition = (lastTask?.position ?? -1) + 1;
 
     return this.prisma.task.create({
       data: {
-        title: dto.title,
-        notes: dto.notes,
-        completed: dto.completed ?? false,
-        dueDate: dto.dueDate,
-        priority: dto.priority ?? 'medium',
-        projectId: dto.projectId,
-        userId: userId,
-        status: dto.status ?? Status.TODO, // Yeni! Default status "todo"
-        position: newPosition, // Yeni!
+        ...rest,
+        position: newPosition,
+        status: dto.status || TaskStatus.TODO,
+        project: { connect: { id: projectId } },
+        user: { connect: { id: userId } },
+        ...(parentId && { parent: { connect: { id: parentId } } }),
       },
     });
   }
 
-  async findAll(userId: number, projectId?: number, status?: Status) {
-    return this.prisma.task.findMany({
-      where: {
-        userId,
-        ...(projectId ? { projectId } : {}),
-        ...(status ? { status } : {}),
-      },
-      orderBy: [
-        // <--- Düzəliş burada! Massiv istifadə edin.
-        { position: 'asc' },
-        { createdAt: 'desc' },
-      ],
-      include: {
-        subtasks: true,
-      },
-    });
-  }
-
-  async findOne(
-    userId: number,
-    id: number,
-  ): Promise<Task & { subtasks: any[] }> {
-    // Return tipini dəyişdik
-    const task = await this.prisma.task.findFirst({
-      where: { id, userId },
-      include: { subtasks: true }, // Subtaskları da gətir
-    });
-    if (!task) throw new NotFoundException('Task not found');
-    return task;
-  }
-
-  async update(userId: number, id: number, dto: UpdateTaskDto) {
-    await this.findOne(userId, id);
-    return this.prisma.task.update({
-      where: { id },
-      data: {
-        ...dto,
-        // Tarix stringlərini Date obyektinə çevir
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-        startTime: dto.startTime ? new Date(dto.startTime) : undefined,
-        endTime: dto.endTime ? new Date(dto.endTime) : undefined,
-      },
-    });
-  }
-
-  async remove(userId: number, id: number) {
-    await this.findOne(userId, id); // Taskın user-ə aid olub olmadığını yoxla
-    // Əvvəlcə əlaqəli subtaskları silin
-    await this.prisma.subtask.deleteMany({
-      where: { taskId: id },
-    });
-
-    return this.prisma.task.delete({
-      where: { id },
-    });
-  }
-
-  // Yeni: Taskın timerini başla
-  async startTaskTimer(userId: number, taskId: number): Promise<Task> {
-    // `void` operatoru funksiyanın qaytardığı dəyəri göz ardı etməyimizi TypeScript-ə bildirir.
-    // Bu, funksiyanın yan effektləri (məsələn, yoxlama və ya verilənlər bazası əməliyyatı) üçün nəzərdə tutulmuşdur.
-    void (await this.findOne(userId, taskId));
-
-    // Əvvəlcə bütün aktiv (startTime var, endTime yoxdur) task timerlərini dayandır
-    // Bunu yalnız mövcud userin taskları üçün etmək lazımdır
-    const activeTasks = await this.prisma.task.findMany({
-      where: {
-        userId,
-        startTime: { not: null },
-        endTime: null,
-      },
-    });
-
-    for (const activeTask of activeTasks) {
-      // Dəyişiklik burada başlayır
-      if (activeTask.startTime !== null) {
-        // Null yoxlaması əlavə edildi
-        const duration = new Date().getTime() - activeTask.startTime.getTime(); // millisaniyə
-        await this.prisma.task.update({
-          where: { id: activeTask.id },
-          data: {
-            endTime: new Date(),
-            totalTimeSpent:
-              (activeTask.totalTimeSpent || 0) + Math.floor(duration / 1000), // saniyə
-          },
-        });
-      }
-      // Dəyişiklik burada bitir
+  async findAllByProject(userId: number, projectId?: number) {
+    if (!projectId) {
+      throw new BadRequestException(
+        'Layihə ID-si göndərilməlidir (projectId).',
+      );
     }
+    await this.verifyProjectOwnership(projectId, userId);
 
-    // Cari taskın timerini başlat
+    // Bütün tapşırıq ağacını gətiririk
+    return this.prisma.task.findMany({
+      where: { userId, projectId, parentId: null }, // Yalnız ana tapşırıqları gətiririk
+      orderBy: { position: 'asc' },
+      include: {
+        children: {
+          // 1-ci səviyyə alt-tapşırıqlar
+          orderBy: { position: 'asc' },
+          include: {
+            children: { orderBy: { position: 'asc' } }, // 2-ci səviyyə alt-tapşırıqlar
+          },
+        },
+      },
+    });
+  }
+
+  async findOne(userId: number, taskId: number): Promise<Task> {
+    return this.verifyTaskOwnership(taskId, userId);
+  }
+
+  async update(
+    userId: number,
+    taskId: number,
+    dto: UpdateTaskDto,
+  ): Promise<Task> {
+    await this.verifyTaskOwnership(taskId, userId);
     return this.prisma.task.update({
       where: { id: taskId },
       data: {
-        startTime: new Date(),
-        endTime: null, // Timer başladıqda bitmə vaxtı sıfırlanır
+        ...dto,
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       },
     });
   }
 
-  // Yeni: Taskın timerini dayandır
-  async stopTaskTimer(userId: number, taskId: number): Promise<Task> {
-    const task = await this.findOne(userId, taskId);
+  async remove(userId: number, taskId: number) {
+    await this.verifyTaskOwnership(taskId, userId);
+    try {
+      await this.prisma.task.delete({ where: { id: taskId } });
+      return { message: 'Tapşırıq uğurla silindi.' };
+    } catch (error) {
+      if (error.code === 'P2003') {
+        throw new BadRequestException(
+          'Bu tapşırığı silməmişdən əvvəl onun alt-tapşırıqlarını silməlisiniz.',
+        );
+      }
+      throw error;
+    }
+  }
 
-    if (!task.startTime || task.endTime) {
-      // Əgər timer başlamayıbsa və ya artıq bitibsə, xəta qaytar
-      throw new BadRequestException(
-        'Task timer not active or already stopped.',
-      );
+  async updateTaskPositions(userId: number, updates: UpdateTaskPositionDto[]) {
+    if (!updates || updates.length === 0)
+      return { message: 'Yenilənəcək məlumat yoxdur.' };
+
+    const transactions = updates.map((update) =>
+      this.prisma.task.updateMany({
+        where: { id: update.id, userId },
+        data: { position: update.position, status: update.status },
+      }),
+    );
+
+    await this.prisma.$transaction(transactions);
+    return { message: 'Pozisiyalar uğurla yeniləndi.' };
+  }
+
+  async startTaskTimer(userId: number, taskId: number): Promise<Task> {
+    await this.verifyTaskOwnership(taskId, userId);
+
+    const runningTask = await this.prisma.task.findFirst({
+      where: { userId, startTime: { not: null }, endTime: null },
+    });
+
+    if (runningTask && runningTask.id !== taskId) {
+      await this.stopTaskTimer(userId, runningTask.id);
     }
 
-    const duration = new Date().getTime() - task.startTime.getTime(); // millisaniyə
+    return this.prisma.task.update({
+      where: { id: taskId },
+      data: { startTime: new Date(), endTime: null },
+    });
+  }
+
+  async stopTaskTimer(userId: number, taskId: number): Promise<Task> {
+    const task = await this.verifyTaskOwnership(taskId, userId);
+
+    if (!task.startTime) {
+      return task;
+    }
+
+    const duration = new Date().getTime() - task.startTime.getTime();
     const newTotalTimeSpent =
-      (task.totalTimeSpent || 0) + Math.floor(duration / 1000); // saniyə
+      (task.totalTimeSpent || 0) + Math.round(duration / 1000);
 
     return this.prisma.task.update({
       where: { id: taskId },
       data: {
         endTime: new Date(),
+        startTime: null,
         totalTimeSpent: newTotalTimeSpent,
       },
     });
   }
 
-  // Yeni: Taskların pozisiyalarını güncəlləmək üçün metod (Kanban üçün)
-  async updateTaskPositions(
+  private async verifyProjectOwnership(
+    projectId: number,
     userId: number,
-    updates: { id: number; position: number; status: Status }[],
-  ): Promise<Task[]> {
-    const updatedTasks: Task[] = [];
-    for (const update of updates) {
-      // Yoxlayın ki, task istifadəçiyə aiddir
-      await this.findOne(userId, update.id);
-      const updatedTask = await this.prisma.task.update({
-        where: { id: update.id },
-        data: {
-          position: update.position,
-          status: update.status,
-        },
-      });
-      updatedTasks.push(updatedTask);
+  ): Promise<void> {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, userId },
+    });
+    if (!project) {
+      throw new NotFoundException('Layihə tapılmadı və ya sizə aid deyil.');
     }
-    return updatedTasks;
+  }
+
+  private async verifyTaskOwnership(
+    taskId: number,
+    userId: number,
+  ): Promise<Task> {
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, userId },
+    });
+    if (!task) {
+      throw new NotFoundException('Tapşırıq tapılmadı və ya sizə aid deyil.');
+    }
+    return task;
   }
 }

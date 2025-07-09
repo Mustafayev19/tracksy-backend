@@ -1,13 +1,13 @@
+// FAYL: src/tasks/dto/update-task.dto.ts (DÜZƏLDİLMİŞ)
+
 import {
   IsOptional,
   IsString,
-  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
-  IsDate, // Date tipini import etdik
 } from 'class-validator';
-import { Priority, Status } from './create-task.dto'; // Status Enumunu import etdik
+import { TaskPriority, TaskStatus } from 'generated/prisma'; // Düzgün import yolu
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -19,39 +19,36 @@ export class UpdateTaskDto {
   notes?: string;
 
   @IsOptional()
-  @IsBoolean()
-  completed?: boolean;
-
-  @IsOptional()
   @IsDateString()
   dueDate?: string;
 
   @IsOptional()
-  @IsEnum(Priority)
-  priority?: Priority;
+  @IsEnum(TaskPriority) // DÜZƏLİŞ: Düzgün Enum istifadə edildi
+  priority?: TaskPriority;
 
   @IsOptional()
   @IsNumber()
   projectId?: number;
 
-  // Yeni sahələr: Kanban və Timer üçün
   @IsOptional()
-  @IsEnum(Status)
-  status?: Status;
+  @IsEnum(TaskStatus) // DÜZƏLİŞ: Düzgün Enum istifadə edildi
+  status?: TaskStatus;
 
   @IsOptional()
   @IsNumber()
   position?: number;
 
+  // DÜZƏLİŞ: @IsDate -> @IsDateString olaraq dəyişdirildi
   @IsOptional()
-  @IsDate() // DateTime tipini Date olaraq istifadə edirik
-  startTime?: Date;
+  @IsDateString()
+  startTime?: string;
+
+  // DÜZƏLİŞ: @IsDate -> @IsDateString olaraq dəyişdirildi
+  @IsOptional()
+  @IsDateString()
+  endTime?: string;
 
   @IsOptional()
-  @IsDate() // DateTime tipini Date olaraq istifadə edirik
-  endTime?: Date;
-
-  @IsOptional()
-  @IsNumber() // int tipini Number olaraq istifadə edirik (saniyə)
+  @IsNumber()
   totalTimeSpent?: number;
 }
